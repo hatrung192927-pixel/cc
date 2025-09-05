@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>SÀN ĐẦU TƯ VIỆT NAM — One Screen Mobile</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lightweight Charts (v4) -->
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.0.0/dist/lightweight-charts.standalone.production.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#0f172a; --panel2:#101826; --text:#e6eef9; --muted:#8aa0c6;
+      --good:#22c55e; --bad:#ef4444; --brand:#2563eb; --gold:#fbbf24;
+      --vh:1vh;
+    }
+    html,body{height:100%}
+    body{background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;margin:0}
+    .card{background:var(--panel);border-radius:10px;padding:8px;box-shadow:0 6px 18px rgba(2,6,23,.28)}
+    .soft{background:var(--panel2);border-radius:8px;padding:6px}
+    .ghost{background:rgba(255,255,255,.04);border-radius:8px;padding:6px}
+    .btn{padding:8px 10px;border-radius:10px;font-weight:800}
+    .btn-prim{background:var(--brand);color:#fff}
+    .btn-up{background:var(--good);color:#052e16}
+    .btn-down{background:var(--bad);color:#330f0f}
+    .btn-ghost{background:rgba(255,255,255,.06)}
+    .muted{color:var(--muted)}
+    .kline-holder{height:calc(var(--vh) * 28);position:relative;overflow:hidden}
+    #chartLW{width:100%;height:calc(var(--vh) * 28)}
+    .progress{height:6px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
+    .progress>div{height:100%;background:linear-gradient(90deg,#2563eb,#22c55e);width:0}
+    .side-toggle{display:flex;border-radius:10px;background:rgba(255,255,255,.06);padding:4px;gap:4px}
+    .side-toggle button{flex:1;border-radius:8px;padding:10px 8px;font-weight:900;letter-spacing:.2px;border:2px solid transparent;transition:.2s}
+    .side-toggle .up{background:rgba(34,197,94,.10);color:#bbf7d0}
+    .side-toggle .down{background:rgba(239,68,68,.10);color:#fecaca}
+    .side-toggle .up.active{background:rgba(34,197,94,.22);color:#ecfdf5;border-color:#34d399}
+    .side-toggle .down.active{background:rgba(239,68,68,.22);color:#fee2e2;border-color:#f87171}
+    .money{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:8px;color:#fff}
+    .money:focus{outline:none;border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,.15)}
+    #timerBig{font-weight:900;font-size:12px;color:#a5f3fc;position:absolute;right:6px;top:6px;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:6px}
+    .rb{display:flex;align-items:center;gap:6px;background:#0d1428;border-radius:999px;padding:4px 8px}
+    .pill{font-size:11px;color:#9ecbff}
+    /* compact typography */
+    *{font-size:13.5px}
+    h2{font-size:16px}
+    h3{font-size:14px}
+    table{border-collapse:collapse;width:100%}
+    th,td{padding:4px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;font-size:12px}
+    thead th{color:#a5b4fc;text-transform:uppercase;letter-spacing:.06em}
+    /* horizontal chip list */
+    .chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+    .chips::-webkit-scrollbar{display:none}
+    .chip{min-width:56px;text-align:center}
+    /* hide OHLC HUD on tiny screens */
+    .ohlc-hud{display:none}
+    /* layout */
+    .grid-one{display:grid;grid-template-columns:1fr;gap:8px}
+    /* prevent scroll by keeping content under 100vh */
+    .page{height:calc(var(--vh) * 100);display:flex;flex-direction:column}
+    main{flex:1;display:grid;grid-template-rows:auto auto auto 1fr;gap:8px}
+    .row-2col{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- Header (very compact) -->
+    <header class="px-3 py-2 bg-[#0d1428] sticky top-0 z-50 shadow">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/2/21/Flag_of_Vietnam.svg" class="w-6 h-6 rounded" alt="VN">
+          <div class="font-bold" style="font-size:13px">SÀN ĐẦU TƯ VN</div>
+        </div>
+        <div class="rb">
+          <span id="rankText" class="pill">Rank: —</span>
+          <span class="pill">Số dư</span>
+          <b id="balanceText" style="font-size:14px">0 đ</b>
+        </div>
+      </div>
+    </header>
+
+    <main class="p-3">
+      <!-- Row 1: Chart -->
+      <div class="card">
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold">Biểu đồ</h2>
+          <div class="text-right">
+            <div class="text-[11px] text-blue-200">BTC</div>
+            <div class="text-[11px]">Giá: <b id="pxNow">-</b></div>
+          </div>
+        </div>
+        <div class="kline-holder mt-2 relative">
+          <div id="chartLW"></div>
+          <div id="timerBig">60s</div>
+        </div>
+      </div>
+
+      <!-- Row 2: Bet + Price quick in two columns -->
+      <div class="row-2col">
+        <div class="card">
+          <h3 class="font-semibold">Đặt cược</h3>
+          <div class="side-toggle mt-1">
+            <button id="btnUp" class="up active" aria-pressed="true">TĂNG</button>
+            <button id="btnDown" class="down" aria-pressed="false">GIẢM</button>
+          </div>
+          <div id="betWindowMsg" class="mt-1 text-[11px] font-bold text-emerald-300">Mở cược 20s đầu</div>
+          <div id="quickAmts" class="chips mt-1">
+            <button class="btn btn-ghost chip" data-amt="5000">5k</button>
+            <button class="btn btn-ghost chip" data-amt="10000">10k</button>
+            <button class="btn btn-ghost chip" data-amt="100000">100k</button>
+            <button class="btn btn-ghost chip" data-amt="1000000">1tr</button>
+            <button class="btn btn-ghost chip" data-amt="10000000">10tr</button>
+            <button class="btn btn-ghost chip" data-amt="100000000">100tr</button>
+            <button class="btn btn-ghost chip" data-amt="1000000000">1 tỷ</button>
+            <button class="btn btn-ghost chip" id="btnAllin">All-in</button>
+          </div>
+          <div class="mt-1 flex items-center gap-1">
+            <input id="betAmount" type="number" min="1" placeholder="Số tiền" class="money flex-1" />
+            <button id="betSubmit" class="btn btn-prim">Đặt</button>
+          </div>
+          <div id="myBetLine" class="mt-1 text-[11px]"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="font-semibold">Giá</h3>
+          <div class="mt-1 space-y-1 text-[12px]">
+            <div class="flex items-center justify-between"><span class="muted">Hiện tại</span><b id="pxNow2">-</b></div>
+            <div class="flex items-center justify-between"><span class="muted">Tăng/Giảm</span><b id="pxDiff">-</b></div>
+            <div class="flex items-center justify-between"><span class="muted">Biên độ 1p</span><b id="pxRange">-</b></div>
+          </div>
+          <div class="mt-2 progress"><div id="roundProgress"></div></div>
+          <div class="mt-1 text-[12px]">Còn: <b id="roundCountdown">--:--</b> • Pha: <b id="roundBadge">OPEN</b></div>
+        </div>
+      </div>
+
+      <!-- Row 3: Summary two columns -->
+      <div class="row-2col">
+        <div class="card">
+          <h3 class="font-semibold">Tổng hợp</h3>
+          <div class="grid grid-cols-2 gap-2 text-[12px] mt-1">
+            <div class="ghost">
+              <div class="muted text-[11px]">100 nến gần nhất</div>
+              <div>Tăng: <b id="statUp">0</b></div>
+              <div>Giảm: <b id="statDown">0</b></div>
+            </div>
+            <div class="ghost">
+              <div class="muted text-[11px]">Phiên</div>
+              <div>Người: <b id="statPeople">0</b></div>
+              <div>Tăng: <b id="statLong">0</b> đ • Giảm: <b id="statShort">0</b> đ</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="font-semibold">Nạp/Rút (mới nhất)</h3>
+          <div class="grid grid-cols-2 gap-2 text-[12px] mt-1">
+            <div>
+              <div class="muted text-[11px]">Nạp</div>
+              <div id="miniDep"></div>
+            </div>
+            <div>
+              <div class="muted text-[11px]">Rút</div>
+              <div id="miniWit"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4: Logs tiny -->
+      <div class="card overflow-hidden">
+        <h3 class="font-semibold">Lịch sử phiên</h3>
+        <div id="roundLog" style="max-height:calc(var(--vh) * 12);overflow:auto"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Overlay (kept for completeness, hidden until used) -->
+  <div id="resultOverlay" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:10000">
+    <div id="resultBox" class="res-box res-win" style="display:none"></div>
+  </div>
+
+  <script>
+  // ======= Constants & helpers =======
+  const STORAGE_KEY = 'bo_game_one_screen_v1';
+  const ROUND_SECONDS = 60, BET_OPEN_SECONDS = 20, COOLDOWN_SECONDS = 10;
+  const MAX_CANDLES = 50, MAX_STAT = 100, MAX_LOG = 200;
+  const DEPOSIT_DELAY = 40*1000, WITHDRAW_DELAY = 60*60*1000, WITHDRAW_MIN = 5_000_000;
+  const el = id => document.getElementById(id);
+  const fmt = v => Number(v||0).toLocaleString('vi-VN');
+  const nowText = () => new Date().toLocaleString('vi-VN');
+  const rand=(a,b)=>Math.random()*(b-a)+a; const randi=(a,b)=>Math.floor(rand(a,b+1)); const coin50=()=>Math.random()<0.5;
+  function setVH(){ document.documentElement.style.setProperty('--vh', (window.innerHeight*0.01)+'px'); }
+  setVH(); addEventListener('resize', setVH, {passive:true}); addEventListener('orientationchange', setVH, {passive:true});
+
+  // ======= State =======
+  const defaultState={ balance:0, candles:[], stat:[], round:{index:1,phase:'OPEN',left:ROUND_SECONDS,myBets:[],sumLong:0,sumShort:0,people:0}, deposits:[], withdrawals:[], roundLog:[] };
+  let state = load() || bootstrap();
+  function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) return JSON.parse(raw);}catch(e){} return null; }
+  function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+  function bootstrap(){
+    const startPrice=2_650_000_000;
+    const arr=genInitialCandles(MAX_CANDLES-1,startPrice,0.008);
+    const stat=arr.map((c,i)=>i===0?true:(arr[i].c>=arr[i-1].c)).slice(-MAX_STAT);
+    return {...defaultState, candles:arr, stat};
+  }
+
+  // ======= Chart =======
+  let chart=null, series=null, volumeSeries=null, maFast=null, maSlow=null, chartRO=null;
+  function initChart(){
+    chart = LightweightCharts.createChart(el('chartLW'),{
+      layout:{ background:{color:'#0b1020'}, textColor:'#c8d9f2' },
+      grid:{ vertLines:{color:'#2a344d', style:LightweightCharts.LineStyle.Dashed}, horzLines:{color:'#2a344d', style:LightweightCharts.LineStyle.Dashed} },
+      rightPriceScale:{ borderVisible:false },
+      timeScale:{ timeVisible:true, secondsVisible:true, barSpacing: 10, rightOffset: 1 },
+      crosshair:{ mode: LightweightCharts.CrosshairMode.Normal }
+    });
+    series = chart.addCandlestickSeries({
+      upColor:'#2dd4bf', downColor:'#ef4444', wickUpColor:'#2dd4bf', wickDownColor:'#ef4444', borderUpColor:'#2dd4bf', borderDownColor:'#ef4444', priceLineVisible:false
+    });
+    maFast = chart.addLineSeries({ color:'#f472b6', lineWidth:2 });
+    maSlow = chart.addLineSeries({ color:'#67e8f9', lineWidth:2 });
+    volumeSeries = chart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'vol' });
+    chart.priceScale('vol').applyOptions({ scaleMargins:{ top:0.80, bottom:0.02 }, borderVisible:false });
+    syncChart();
+  }
+  function calcMA(arr,p){ const out=[]; let sum=0; for(let i=0;i<arr.length;i++){ const v=arr[i].c; sum+=v; if(i>=p) sum-=arr[i-p].c; const t=Math.floor(arr[i].t/1000); out.push({time:t,value: i>=p-1? Math.round(sum/p): v}); } return out; }
+  function syncDerivedSeries(){
+    const d=state.candles; maFast.setData(calcMA(d,7)); maSlow.setData(calcMA(d,18));
+    volumeSeries.setData(d.map((c,i)=>({ time:Math.floor(c.t/1000), value:c.v||0, color:(i>0 && c.c>=d[i-1].c)?'#2dd4bf':'#ef4444' })));
+  }
+  function updateDerivedLast(){
+    const d=state.candles, i=d.length-1; if(i<0) return;
+    const t=Math.floor(d[i].t/1000);
+    const m7=calcMA(d,7), m18=calcMA(d,18);
+    maFast.update(m7[m7.length-1]); maSlow.update(m18[m18.length-1]);
+    volumeSeries.update({ time:t, value:d[i].v||0, color:(i>0 && d[i].c>=d[i-1].c)?'#2dd4bf':'#ef4444' });
+  }
+  function syncChart(){
+    series.setData(state.candles.map(c=>({ time:Math.floor(c.t/1000), open:c.o, high:c.h, low:c.l, close:c.c })));
+    syncDerivedSeries(); updatePriceUI();
+  }
+
+  // ======= Candle helpers =======
+  function genInitialCandles(n,startPrice,vol=0.01){
+    const out=[]; let p=startPrice;
+    for(let i=0;i<n;i++){ const c=makeCandleFrom(p,vol); out.push(c); p=c.c; }
+    const now=Date.now(); for(let i=0;i<out.length;i++){ out[i].t = now - (out.length-i)*60*1000; }
+    return out;
+  }
+  function makeCandleFrom(prevClose,vol){
+    const up=coin50(), range=prevClose*rand(vol*0.5, vol*1.2), body=range*rand(0.3,0.9), wick=range-body;
+    let o=prevClose,h,l,c; if(up){ c=prevClose+body; h=c+wick*rand(0.2,0.8); l=prevClose-wick*rand(0.1,0.5);} else { c=prevClose-body; l=c-wick*rand(0.2,0.8); h=prevClose+wick*rand(0.1,0.5);}
+    const hi=Math.max(o,h,c), lo=Math.min(o,l,c);
+    return { t:Date.now(), o:Math.round(o), h:Math.round(hi), l:Math.round(lo), c:Math.round(c), v:randi(50,3000) };
+  }
+
+  // ======= Live candle 60s =======
+  let live={active:false,ticks:0,scenario:0,timeSec:null,intervalId:null};
+  function smoothStep(prev,sc){ const amp=Math.max(2,Math.round(prev*0.0008)); if(sc===0) return prev+Math.random()*amp; if(sc===1) return prev-Math.random()*amp; return prev+(Math.random()-0.5)*amp*1.2; }
+  function canBet(){ return state.round.phase==='OPEN' && state.round.left > (ROUND_SECONDS - BET_OPEN_SECONDS); }
+  function startLiveCandle(){
+    if(live.active) return; live.active=true; live.ticks=0; live.scenario=randi(0,2);
+    const last=state.candles[state.candles.length-1]; const base= last? last.c: 2_650_000_000; const open=Math.round(base);
+    const nowSec=Math.floor(Date.now()/1000); live.timeSec=(last? Math.floor(last.t/1000): nowSec)+60;
+    const c={t:live.timeSec*1000,o:open,h:open,l:open,c:open,v:0}; state.candles.push(c); if(state.candles.length>MAX_CANDLES) state.candles.shift();
+    syncChart(); state.round.phase='OPEN'; state.round.left=ROUND_SECONDS; state.round.myBets=[]; save(); renderAll();
+    live.intervalId=setInterval(()=>{
+      live.ticks++; const k=state.candles[state.candles.length-1]; if(!k) return;
+      let next=Math.round(smoothStep(k.c,live.scenario)); if(next===k.c) next+=(Math.random()<0.5?1:-1)*randi(1,10);
+      k.c=next; if(k.c>k.h) k.h=k.c; if(k.c<k.l) k.l=k.c; k.t=live.timeSec*1000; k.v=(k.v||0)+randi(1,25);
+      series.update({ time:live.timeSec, open:k.o, high:k.h, low:k.l, close:k.c }); updateDerivedLast(); updatePriceUI();
+      state.round.left=Math.max(0, ROUND_SECONDS - live.ticks); el('timerBig').innerText=state.round.left+'s'; renderRoundUI();
+      if(canBet()){ simulateRandomPlayersOnce(); renderStats(); }
+      if(live.ticks>=ROUND_SECONDS){ clearInterval(live.intervalId); live.intervalId=null; live.active=false; finalizeLiveCandle(); }
+    },1000);
+  }
+  function finalizeLiveCandle(){
+    const k=state.candles[state.candles.length-1]; if(!k) return;
+    let majority= state.round.sumLong===state.round.sumShort ? (Math.random()<0.5?'UP':'DOWN') : (state.round.sumLong>state.round.sumShort?'UP':'DOWN');
+    let actual = (Math.random()<0.9)? majority : (majority==='UP'?'DOWN':'UP');
+    const step=randi(4000,80000); if(actual==='UP') k.c=Math.max(k.o+step,k.c); else k.c=Math.min(k.o-step,k.c);
+    k.h=Math.max(k.h,k.c,k.o); k.l=Math.min(k.l,k.c,k.o);
+    series.update({ time:live.timeSec, open:k.o, high:k.h, low:k.l, close:k.c }); updateDerivedLast(); updatePriceUI();
+    state.stat.push(k.c>=k.o); if(state.stat.length>MAX_STAT) state.stat.shift();
+    const winBet=state.round.myBets.filter(b=>b.side===actual), loseBet=state.round.myBets.filter(b=>b.side!==actual);
+    const win=winBet.reduce((a,b)=>a+b.amount,0); const lose=loseBet.reduce((a,b)=>a+b.amount,0); const profit=win*2; if(win>0) state.balance+=profit;
+    state.roundLog.unshift({i:state.round.index,time:nowText(),res:actual,long:state.round.sumLong,short:state.round.sumShort,people:state.round.people,myWin:win,myLose:lose});
+    if(state.roundLog.length>MAX_LOG) state.roundLog=state.roundLog.slice(0,MAX_LOG);
+    state.round.myBets=[]; state.round.sumLong=0; state.round.sumShort=0; save(); renderAll();
+    state.round.phase='COOLDOWN'; state.round.left=COOLDOWN_SECONDS; renderRoundUI();
+    const cd=setInterval(()=>{ state.round.left--; renderRoundUI(); if(state.round.left<=0){ clearInterval(cd); state.round.index++; startRound(); } },1000);
+  }
+
+  // ======= Round & players (very compact numbers) =======
+  function startRound(){
+    if(live.intervalId){ clearInterval(live.intervalId); live.intervalId=null; } live.active=false;
+    state.round.phase='OPEN'; state.round.left=ROUND_SECONDS; state.round.myBets=[];
+    state.round._targetPeople=randi(600,1800);
+    state.round._targetLong=randi(800_000_000,3_000_000_000);
+    state.round._targetShort=randi(800_000_000,3_000_000_000);
+    state.round.people=0; state.round.sumLong=0; state.round.sumShort=0; save(); renderAll(); renderStats(); startLiveCandle();
+  }
+  function simulateRandomPlayersOnce(){
+    const openLeft = state.round.left - (ROUND_SECONDS - BET_OPEN_SECONDS); if(openLeft<=0) return;
+    const remainP = Math.max(0,(state.round._targetPeople||0)-state.round.people);
+    const remainL = Math.max(0,(state.round._targetLong||0)-state.round.sumLong);
+    const remainS = Math.max(0,(state.round._targetShort||0)-state.round.sumShort);
+    const jitter=(m)=>Math.max(1,Math.round(m * (0.9+Math.random()*0.4)));
+    const incP=Math.min(remainP, jitter(remainP/openLeft));
+    const incL=Math.min(remainL, jitter(remainL/openLeft));
+    const incS=Math.min(remainS, jitter(remainS/openLeft));
+    state.round.people+=incP; state.round.sumLong+=incL; state.round.sumShort+=incS;
+  }
+
+  // ======= UI =======
+  let currentSide='UP';
+  function setSide(s){
+    currentSide=s; el('btnUp').classList.toggle('active', s==='UP'); el('btnDown').classList.toggle('active', s==='DOWN');
+    el('btnUp').setAttribute('aria-pressed', s==='UP'?'true':'false'); el('btnDown').setAttribute('aria-pressed', s==='DOWN'?'true':'false');
+  }
+  function setBetAmount(v){ el('betAmount').value = Number(v); }
+  function allin(){ el('betAmount').value = state.balance; }
+  function submitBet(){
+    if(!canBet()) return alert('Chỉ được đặt trong 20 giây đầu.');
+    const amt=Math.max(1, Number(el('betAmount').value||0));
+    if(amt<=0) return alert('Nhập số tiền hợp lệ');
+    if(state.balance<amt) return alert('Số dư không đủ');
+    state.balance-=amt; state.round.myBets.push({side:currentSide, amount:amt});
+    if(currentSide==='UP') state.round.sumLong+=amt; else state.round.sumShort+=amt;
+    state.round.people++; el('betAmount').value=''; save(); renderAll();
+  }
+
+  // ======= Renders =======
+  function updatePriceUI(){
+    const k=state.candles[state.candles.length-1]; if(!k){ el('pxNow').textContent='-'; el('pxNow2').textContent='-'; el('pxDiff').textContent='-'; el('pxRange').textContent='-'; return; }
+    const diff=k.c-k.o; el('pxNow').textContent=fmt(k.c)+' đ'; el('pxNow2').textContent=fmt(k.c)+' đ';
+    el('pxDiff').textContent=(diff>=0?'+':'')+fmt(diff)+' đ'; el('pxDiff').className=diff>=0? 'text-emerald-300':'text-rose-300';
+    el('pxRange').textContent=`${fmt(k.l)} → ${fmt(k.h)}`;
+  }
+  function renderAll(){ renderBalance(); renderRoundUI(); renderStats(); renderLogs(); renderMini(); renderMyBetLine(); }
+  function renderBalance(){ let b=state.balance, rank='—'; if(b>=10_000_000_000) rank='Đá quý'; else if(b>=1_000_000_000) rank='Kim cương'; else if(b>=100_000_000) rank='Vàng'; else if(b>=10_000_000) rank='Bạc'; else if(b>=1_000_000) rank='Đồng'; el('rankText').textContent=`Rank: ${rank}`; el('balanceText').textContent=fmt(b)+' đ'; }
+  function renderRoundUI(){
+    el('roundBadge').textContent=state.round.phase;
+    const total= state.round.phase==='OPEN'? ROUND_SECONDS: COOLDOWN_SECONDS;
+    const left=Math.max(0, Math.min(total, state.round.left));
+    el('roundProgress').style.width=(100 - Math.round(left/total*100))+'%';
+    const mm=String(Math.floor(left/60)).padStart(2,'0'), ss=String(left%60).padStart(2,'0');
+    el('roundCountdown').textContent=`${mm}:${ss}`;
+  }
+  function renderStats(){
+    const up = state.stat.filter(Boolean).length, down = state.stat.length - up;
+    document.getElementById('statUp').textContent = up; document.getElementById('statDown').textContent = down;
+    document.getElementById('statPeople').textContent = fmt(state.round.people);
+    document.getElementById('statLong').textContent = fmt(state.round.sumLong);
+    document.getElementById('statShort').textContent = fmt(state.round.sumShort);
+  }
+  function renderLogs(){
+    const box=el('roundLog'); if(!state.roundLog.length){ box.innerHTML='<div class="text-[11px] muted">Chưa có dữ liệu</div>'; return;}
+    let html = '<table><thead><tr><th>#</th><th>KQ</th><th>Long</th><th>Short</th><th>Ng</th><th>Thời gian</th></tr></thead><tbody>';
+    for(const r of state.roundLog.slice(0,4)){ html+=`<tr><td>${r.i}</td><td class="${r.res==='UP'?'text-emerald-400':'text-rose-400'}">${r.res}</td><td>${fmt(r.long)}</td><td>${fmt(r.short)}</td><td>${fmt(r.people)}</td><td>${r.time}</td></tr>`; }
+    html+='</tbody></table>'; box.innerHTML=html;
+  }
+  function renderMini(){
+    const dep=el('miniDep'), wit=el('miniWit');
+    dep.innerHTML = state.deposits.slice(0,2).map(d=>`<div class='text-[12px]'>+${fmt(d.amount)} đ • ${d.status || '—'}</div>`).join('') || '<div class="text-[12px] muted">—</div>';
+    wit.innerHTML = state.withdrawals.slice(0,2).map(w=>`<div class='text-[12px]'>-${fmt(w.amount)} đ • ${w.status || '—'}</div>`).join('') || '<div class="text-[12px] muted">—</div>';
+  }
+  function renderMyBetLine(){
+    const long=state.round.myBets.filter(b=>b.side==='UP').reduce((a,b)=>a+b.amount,0);
+    const short=state.round.myBets.filter(b=>b.side==='DOWN').reduce((a,b)=>a+b.amount,0);
+    el('myBetLine').textContent = `Chọn: ${currentSide==='UP'?'TĂNG':'GIẢM'} • Tăng ${fmt(long)} đ • Giảm ${fmt(short)} đ`;
+  }
+
+  // ======= Utils =======
+  function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
+
+  // ======= Events =======
+  el('btnUp').addEventListener('click', ()=> setSide('UP'));
+  el('btnDown').addEventListener('click', ()=> setSide('DOWN'));
+  document.querySelectorAll('[data-amt]').forEach(b => b.addEventListener('click', ()=> setBetAmount(Number(b.dataset.amt))));
+  document.getElementById('btnAllin').addEventListener('click', allin);
+  document.getElementById('betSubmit').addEventListener('click', submitBet);
+
+  // Resize observer for chart
+  function attachChartResizeObserver(){
+    const holder=document.getElementById('chartLW'); if(!holder||!chart) return;
+    if(chartRO) chartRO.disconnect();
+    chartRO=new ResizeObserver(entries=>{ for(const e of entries){ const {width,height}=e.contentRect; chart.applyOptions({ width:Math.floor(width), height:Math.floor(height) }); } });
+    chartRO.observe(holder);
+  }
+
+  // ======= Boot =======
+  initChart();
+  attachChartResizeObserver();
+  renderAll();
+  startRound();
+  </script>
+</body>
+</html>
